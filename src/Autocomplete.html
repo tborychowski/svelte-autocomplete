@@ -1,0 +1,186 @@
+<style>
+.autocomplete {
+	flex: 1;
+	display: flex;
+	flex-wrap: wrap;
+	min-width: 200px;
+	max-width: 60%;
+	position: fixed;
+	left: 30%;
+	right: 30%;
+	top: 15%;
+	background: #fff;
+	border-radius: 4px;
+	box-shadow: 0 1px 5px rgba(#000, 0.3);
+}
+.autocomplete * { box-sizing: border-box; }
+.autocomplete-input {
+	font: inherit;
+	width: 100%;
+	border: none;
+	padding: 5px 11px;
+	margin: 10px 0;
+	outline: none;
+}
+.autocomplete-list {
+	position: relative;
+	width: 100%;
+	overflow-y: auto;
+	z-index: 99;
+	padding: 10px 0;
+	border-top: 1px solid #ccc;
+	max-height: calc(10 * (1em + 10px) + 15px);
+	user-select: none;
+}
+.autocomplete-list:empty { padding: 0;  }
+.autocomplete-list-item { padding: 5px 20px; color: #333; cursor: pointer; line-height: 1;  }
+.autocomplete-list-item:hover,
+.autocomplete-list-item.selected { background-color: #2e69e2; color: #fff; }
+.autocomplete-list.hidden { display: none; }
+</style>
+
+
+<div class="autocomplete">
+	<input type="text" class="autocomplete-input" bind:value="text" ref:input
+		on:focus="open()"
+		on:keydown="onkeydown(event)"
+		on:keypress="onkeypress(event)"
+		>
+	<div class="autocomplete-list {open ? '' : 'hidden'}" ref:list>
+		{#each filteredData as item, i}
+			<div class="autocomplete-list-item {i === highlightIndex ? 'selected' : ''}" on:click="onclick(item)">
+				{@html item.highlighted && item.highlighted.name || item.name}
+			</div>
+		{/each}
+	</div>
+</div>
+
+
+<script>
+// 'item number one'.replace(/(it)(.*)(nu)(.*)(one)/ig, '<b>$1</b>$2 <b>$3</b>$4 <b>$5</b>')
+function highlightFilter (q, fields) {
+	const qs = '(' + q.trim().replace(/\s/g, ')(.*)(') + ')';
+	const reg = new RegExp(qs, 'ig');
+	let n = 1, len = qs.split(')(').length + 1, repl = '';
+	for (; n < len; n++) repl += n % 2 ? `<b>$${n}</b>` : `$${n}`;
+
+	return i => {
+		const newI = Object.assign({ highlighted: {} }, i);
+		if (fields) {
+			fields.forEach(f => {
+				if (!newI[f]) return;
+				newI.highlighted[f] = newI[f].replace(reg, repl);
+			});
+		}
+		return newI;
+	};
+}
+
+export default {
+	data () {
+		return {
+			data: [],
+			text: '',
+			open: false,
+			highlightIndex: 0,
+			value: null
+		}
+	},
+	computed: {
+		filteredData ({ data, text }) {
+			if (!text) return data;
+			const hlfilter = highlightFilter(text, ['name']);
+			const f = text.toLowerCase();
+			return data
+				.filter(item => item.name.toLowerCase().includes(f))
+				.map(hlfilter);
+		}
+	},
+	oncreate () {
+		document.addEventListener('click', this.ondocumentclick.bind(this));
+	},
+	onstate ({changed, current}) {
+		if (changed.text && current.text) this.oninput();
+	},
+	methods: {
+		selectItem () {
+			const {highlightIndex, filteredData} = this.get();
+			const value = filteredData[highlightIndex];
+			this.set({ value, text: value.name });
+			this.close();
+		},
+		up () {
+			this.open();
+			let {highlightIndex} = this.get();
+			if (highlightIndex > 0) highlightIndex--;
+			this.set({highlightIndex});
+			this.highlight();
+		},
+		down () {
+			this.open();
+			let {highlightIndex, filteredData} = this.get();
+			if (highlightIndex < filteredData.length - 1) highlightIndex++;
+			this.set({highlightIndex});
+			this.highlight();
+		},
+		highlight () {
+			const el = this.refs.list.querySelector('.selected');
+			if (el) el.scrollIntoViewIfNeeded();
+		},
+
+		onclick (item) {
+			this.set({ value: item, text: item.name });
+			this.close();
+		},
+		ondocumentclick (e) {
+			if (!e.target.closest('.autocomplete')) this.close();
+		},
+		onkeydown (e) {
+			let key = e.key;
+			if (key === 'Tab' && e.shiftKey) key = 'ShiftTab';
+			const {open} = this.get();
+			const fnmap = {
+				Tab: open ? this.down.bind(this) : null,
+				ShiftTab: open ? this.up.bind(this) : null,
+				ArrowDown: this.down.bind(this),
+				ArrowUp: this.up.bind(this),
+				Escape: this.onEsc.bind(this),
+			};
+			const fn = fnmap[key];
+			if (typeof fn === 'function') {
+				e.preventDefault();
+				fn(e);
+			}
+		},
+		oninput () {
+			this.open();
+			this.set({highlightIndex: 0});
+		},
+		onkeypress (e) {
+			if (e.key === 'Enter') {
+				e.preventDefault();
+				this.selectItem();
+			}
+		},
+		onEsc (e) {
+			const {text, open} = this.get();
+			if (text) return this.clear();
+			if (open) return setTimeout(() => {
+				this.refs.input.focus();
+				this.close();
+			});
+			e.stopPropagation();
+		},
+		clear () {
+			this.set({ text: '' });
+			setTimeout(() => this.refs.input.focus());
+		},
+		open () {
+			this.set({ open: true });
+		},
+		close () {
+			this.set({ open: false });
+		},
+	}
+};
+</script>
