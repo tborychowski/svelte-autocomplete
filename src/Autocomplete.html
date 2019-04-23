@@ -64,38 +64,20 @@
 
 <script>
 
-// 'item number one'.replace(/(it)(.*)(nu)(.*)(one)/ig, '<b>$1</b>$2 <b>$3</b>$4 <b>$5</b>')
-function highlightFilter (q, fields) {
-	const qs = '(' + q.trim().replace(/\s/g, ')(.*)(') + ')';
-	const reg = new RegExp(qs, 'ig');
-	let n = 1, len = qs.split(')(').length + 1, repl = '';
-	for (; n < len; n++) repl += n % 2 ? `<b>$${n}</b>` : `$${n}`;
-
-	return i => {
-		const newI = Object.assign({ highlighted: {} }, i);
-		if (fields) {
-			fields.forEach(f => {
-				if (!newI[f]) return;
-				newI.highlighted[f] = newI[f].replace(reg, repl);
-			});
-		}
-		return newI;
-	};
-}
-
 export let data = [];
 export let value = null;
-let text = '';
+export let text = '';
 let opened = false;
 let highlightIndex = 0;
-let input, list, filteredData, hlfilter, f;
+let input, list, filteredData;
 
-$: hlfilter = highlightFilter(text, ['name']);
-$: f = text.toLowerCase();
-$: filteredData = !text ? data : data
+$: {
+	const f = text.toLowerCase();
+	const hlfilter = highlightFilter(text, ['name']);
+	filteredData = !text ? data : data
 		.filter(item => item.name.toLowerCase().includes(f))
 		.map(hlfilter);
-
+}
 
 function selectItem () {
 	value = filteredData[highlightIndex];
@@ -163,11 +145,11 @@ function onkeypress (e) {
 
 function onEsc (e) {
 	if (text) return clear();
-	if (opened) return setTimeout(() => {
+	e.stopPropagation();
+	if (opened) {
 		input.focus();
 		close();
-	});
-	e.stopPropagation();
+	};
 }
 
 function clear () {
@@ -182,6 +164,27 @@ function open () {
 function close () {
 	opened = false;
 }
+
+
+// 'item number one'.replace(/(it)(.*)(nu)(.*)(one)/ig, '<b>$1</b>$2 <b>$3</b>$4 <b>$5</b>')
+function highlightFilter (q, fields) {
+	const qs = '(' + q.trim().replace(/\s/g, ')(.*)(') + ')';
+	const reg = new RegExp(qs, 'ig');
+	let n = 1, len = qs.split(')(').length + 1, repl = '';
+	for (; n < len; n++) repl += n % 2 ? `<b>$${n}</b>` : `$${n}`;
+
+	return i => {
+		const newI = Object.assign({ highlighted: {} }, i);
+		if (fields) {
+			fields.forEach(f => {
+				if (!newI[f]) return;
+				newI.highlighted[f] = newI[f].replace(reg, repl);
+			});
+		}
+		return newI;
+	};
+}
+
 
 
 </script>
