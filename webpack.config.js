@@ -8,7 +8,7 @@ module.exports = {
 		filename: 'index.js',
 		path: path.resolve(__dirname, 'dist'),
 	},
-	resolve: { extensions: ['.js', '.json', '.html'] },
+	resolve: { extensions: ['.mjs', '.js', '.json', '.html'] },
 	stats: 'normal',
 	module: {
 		rules: [
@@ -16,7 +16,7 @@ module.exports = {
 			{
 				test: /\.html$/,
 				exclude: /node_modules/,
-				use: { loader: 'svelte-loader' },
+				use: [ 'svelte-loader' ],
 			},
 		]
 	}
