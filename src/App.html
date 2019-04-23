@@ -1,7 +1,10 @@
 {value.name || 'select'}
-<Autocomplete data={data} bind:value="value" />
+<Autocomplete data="{data}" bind:value="{value}" />
 
 <script>
+import Autocomplete from './Autocomplete';
+
+let value = [];
 const data = [
 	{id: 'Alpha', name: 'Alpha'},
 	{id: 'Beta', name: 'Beta'},
@@ -15,12 +18,4 @@ const data = [
 	{id: 'Kappa', name: 'Kappa'},
 	{id: 'Lambda', name: 'Lambda'},
 ];
-export default {
-	data () {
-		return {data, value: {}}
-	},
-	components: {
-		Autocomplete: './Autocomplete',
-	}
-};
 </script>

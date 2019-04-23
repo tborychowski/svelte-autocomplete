@@ -41,22 +41,30 @@
 
 
 <div class="autocomplete">
-	<input type="text" class="autocomplete-input" bind:value="text" ref:input
-		on:focus="open()"
-		on:keydown="onkeydown(event)"
-		on:keypress="onkeypress(event)"
+	<input type="text" class="autocomplete-input"
+		bind:this="{input}"
+		bind:value="{text}"
+		on:input="{oninput}"
+		on:focus="{open}"
+		on:keydown="{onkeydown}"
+		on:keypress="{onkeypress}"
 		>
-	<div class="autocomplete-list {open ? '' : 'hidden'}" ref:list>
+	<div class="autocomplete-list {opened ? '' : 'hidden'}" bind:this="{list}">
 		{#each filteredData as item, i}
-			<div class="autocomplete-list-item {i === highlightIndex ? 'selected' : ''}" on:click="onclick(item)">
+			<div class="autocomplete-list-item {i === highlightIndex ? 'selected' : ''}"
+				on:click="{() => onclick(item)}">
+
 				{@html item.highlighted && item.highlighted.name || item.name}
 			</div>
 		{/each}
 	</div>
 </div>
 
+<svelte:window on:click={onDocumentClick}/>
 
 <script>
+
+
 // 'item number one'.replace(/(it)(.*)(nu)(.*)(one)/ig, '<b>$1</b>$2 <b>$3</b>$4 <b>$5</b>')
 function highlightFilter (q, fields) {
 	const qs = '(' + q.trim().replace(/\s/g, ')(.*)(') + ')';
@@ -76,111 +84,105 @@ function highlightFilter (q, fields) {
 	};
 }
 
-export default {
-	data () {
-		return {
-			data: [],
-			text: '',
-			open: false,
-			highlightIndex: 0,
-			value: null
-		}
-	},
-	computed: {
-		filteredData ({ data, text }) {
-			if (!text) return data;
-			const hlfilter = highlightFilter(text, ['name']);
-			const f = text.toLowerCase();
-			return data
-				.filter(item => item.name.toLowerCase().includes(f))
-				.map(hlfilter);
-		}
-	},
-	oncreate () {
-		document.addEventListener('click', this.ondocumentclick.bind(this));
-	},
-	onstate ({changed, current}) {
-		if (changed.text && current.text) this.oninput();
-	},
-	methods: {
-		selectItem () {
-			const {highlightIndex, filteredData} = this.get();
-			const value = filteredData[highlightIndex];
-			this.set({ value, text: value.name });
-			this.close();
-		},
-		up () {
-			this.open();
-			let {highlightIndex} = this.get();
-			if (highlightIndex > 0) highlightIndex--;
-			this.set({highlightIndex});
-			this.highlight();
-		},
-		down () {
-			this.open();
-			let {highlightIndex, filteredData} = this.get();
-			if (highlightIndex < filteredData.length - 1) highlightIndex++;
-			this.set({highlightIndex});
-			this.highlight();
-		},
-		highlight () {
-			const el = this.refs.list.querySelector('.selected');
-			if (el) el.scrollIntoViewIfNeeded();
-		},
+export let data = [];
+export let value = null;
+let text = '';
+let opened = false;
+let highlightIndex = 0;
+let input, list, filteredData, hlfilter, f;
 
-		onclick (item) {
-			this.set({ value: item, text: item.name });
-			this.close();
-		},
-		ondocumentclick (e) {
-			if (!e.target.closest('.autocomplete')) this.close();
-		},
-		onkeydown (e) {
-			let key = e.key;
-			if (key === 'Tab' && e.shiftKey) key = 'ShiftTab';
-			const {open} = this.get();
-			const fnmap = {
-				Tab: open ? this.down.bind(this) : null,
-				ShiftTab: open ? this.up.bind(this) : null,
-				ArrowDown: this.down.bind(this),
-				ArrowUp: this.up.bind(this),
-				Escape: this.onEsc.bind(this),
-			};
-			const fn = fnmap[key];
-			if (typeof fn === 'function') {
-				e.preventDefault();
-				fn(e);
-			}
-		},
-		oninput () {
-			this.open();
-			this.set({highlightIndex: 0});
-		},
-		onkeypress (e) {
-			if (e.key === 'Enter') {
-				e.preventDefault();
-				this.selectItem();
-			}
-		},
-		onEsc (e) {
-			const {text, open} = this.get();
-			if (text) return this.clear();
-			if (open) return setTimeout(() => {
-				this.refs.input.focus();
-				this.close();
-			});
-			e.stopPropagation();
-		},
-		clear () {
-			this.set({ text: '' });
-			setTimeout(() => this.refs.input.focus());
-		},
-		open () {
-			this.set({ open: true });
-		},
-		close () {
-			this.set({ open: false });
-		},
+$: hlfilter = highlightFilter(text, ['name']);
+$: f = text.toLowerCase();
+$: filteredData = !text ? data : data
+		.filter(item => item.name.toLowerCase().includes(f))
+		.map(hlfilter);
+
+
+function selectItem () {
+	value = filteredData[highlightIndex];
+	text = value.name;
+	close();
+}
+
+function up () {
+	open();
+	if (highlightIndex > 0) highlightIndex--;
+	highlight();
+}
+
+function down () {
+	open();
+	if (highlightIndex < filteredData.length - 1) highlightIndex++;
+	highlight();
+}
+
+function highlight () {
+	const el = list.querySelector('.selected');
+	if (el) el.scrollIntoViewIfNeeded();
+}
+
+
+function onclick (item) {
+	value = item;
+	text = item.name;
+	close();
+}
+
+function onDocumentClick (e) {
+	if (!e.target.closest('.autocomplete')) close();
+}
+
+function onkeydown (e) {
+	let key = e.key;
+	if (key === 'Tab' && e.shiftKey) key = 'ShiftTab';
+	const fnmap = {
+		Tab: opened ? down.bind(this) : null,
+		ShiftTab: opened ? up.bind(this) : null,
+		ArrowDown: down.bind(this),
+		ArrowUp: up.bind(this),
+		Escape: onEsc.bind(this),
+	};
+	const fn = fnmap[key];
+	if (typeof fn === 'function') {
+		e.preventDefault();
+		fn(e);
 	}
-};
+}
+
+function oninput (e) {
+	text = e.target.value;
+	open();
+	highlightIndex = 0;
+}
+
+function onkeypress (e) {
+	if (e.key === 'Enter') {
+		e.preventDefault();
+		selectItem();
+	}
+}
+
+function onEsc (e) {
+	if (text) return clear();
+	if (opened) return setTimeout(() => {
+		input.focus();
+		close();
+	});
+	e.stopPropagation();
+}
+
+function clear () {
+	text = '';
+	setTimeout(() => input.focus());
+}
+
+function open () {
+	opened = true;
+}
+
+function close () {
+	opened = false;
+}
+
+
 </script>
