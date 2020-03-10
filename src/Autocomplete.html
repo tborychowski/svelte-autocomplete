@@ -71,6 +71,7 @@ let opened = false;
 let highlightIndex = 0;
 let input, list, filteredData;
 
+// reactive block
 $: {
 	const f = text.toLowerCase();
 	const hlfilter = highlightFilter(text, ['name']);
